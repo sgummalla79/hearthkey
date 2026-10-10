@@ -1,0 +1,7 @@
+# Default owner for everything
+*                                   @sgummalla79
+
+# Security-critical areas: always require owner review
+/packages/vault-core/               @sgummalla79
+/docs/standards/security.md         @sgummalla79
+/.github/                           @sgummalla79
