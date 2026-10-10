@@ -19,7 +19,7 @@ All seven planning decisions are made; none are open.
 | 3 | Mac app | Decided | iPad app running on Apple Silicon Macs, plus the web app and extension |
 | 4 | Forgotten master password | Decided | A family organizer or team manager can recover a member who opted in (design under Security design); everyone else relies on their recovery kit |
 | 5 | Secret Key (1Password-style) | Decided | No Secret Key; passkeys as the second factor instead (see Security design). Can be revisited after launch |
-| 6 | Hosting | Decided | A rented VPS running the API, PostgreSQL and MinIO, swappable to cloud storage later |
+| 6 | Hosting | Decided | Production on a rented VPS (Hostinger, 2 vCPU, 8 GB RAM, 100 GB disk) running the API, PostgreSQL and MinIO; staging on Fly.io; storage swappable to cloud later (see [ADR-0001](adr/0001-hosting-fly-staging-vps-production.md)) |
 | 7 | Team and timeline | Decided | 1 developer; Sprint 0 starts 2026-10-19, MVP in production the week of 2027-02-22 |
 
 Developer accounts must be opened in Sprint 0: Apple Developer Program (about $99 a year), Google Play Console (about $25 once) and Chrome Web Store (about $5 once). These prices are from memory, so treat them as approximate.
@@ -61,7 +61,7 @@ All four clients carry the same vault-core, so encryption happens before anythin
 | File storage | Self-hosted MinIO (S3-compatible) behind a BlobStore interface | Certificate and attachment files, encrypted on the client before upload | We run disk monitoring and backups ourselves |
 | Local storage | SQLite (expo-sqlite) on mobile, IndexedDB on web and extension | Offline access to the encrypted vault | Two storage adapters |
 | Account login | Derived authentication key (Bitwarden-style), then a passkey (WebAuthn) as the phishing-resistant second factor, with TOTP as fallback; biometrics for local unlock | The server never sees the master password or anything that can decrypt the vault | OPAQUE is stronger but newer; kept as a later upgrade |
-| Hosting | Rented Linux VPS (one for staging, one for production) running Docker Compose: API, PostgreSQL, MinIO, and Caddy for HTTPS and the web app | Full control of where data lives, no cloud vendor yet; the same containers run anywhere later | We own uptime, patching and backups |
+| Hosting | Production: rented Linux VPS running Docker Compose (API, PostgreSQL, MinIO, and Caddy for HTTPS and the web app). Staging: Fly.io running the same container images | Full control of where data lives, no cloud vendor yet; the same containers run anywhere later | We own uptime, patching and backups |
 | CI/CD | GitHub Actions; EAS Build and Submit for mobile; Chrome Web Store API upload for the extension | Every merge builds every platform; releases are one tag | EAS build minutes cost money beyond the free tier |
 | Quality and security tooling | Vitest, Playwright (web and extension), Maestro (mobile), CodeQL, Renovate, Sentry (scrubbed of secrets) | Covers unit to end-to-end on each platform | Test setup takes most of Sprint 0 |
 
@@ -69,7 +69,7 @@ The extensibility requirement (notes, SSL certificates) is handled in the data m
 
 **Swappable storage.** Storage is self-hosted for now and the code never talks to it directly. The API depends on two interfaces in a `storage` package: a `VaultRepository` for records (implemented with Drizzle over PostgreSQL) and a `BlobStore` for files (`put`, `get`, `delete`, `signedUrl`). Two `BlobStore` adapters ship from Sprint 0, local filesystem for development and S3 API for MinIO, and the S3 adapter works unchanged against AWS S3 or Cloudflare R2. Moving to cloud storage later is then a configuration change plus a one-time data copy (pg_dump and restore, `mc mirror` for files), with no app release. Because every byte is encrypted on the client, the storage provider never needs to be trusted. Nightly backups of both stores go to a second location, and a restore is tested before every sprint release.
 
-**VPS setup and deployment.** The staging VPS is set up in Sprint 0 together with a separate production VPS, both from the same scripted setup so they match. Suggested starting size is 2 vCPU, 4 GB RAM and 80 GB disk each, upgraded as data grows; the server load is light because key derivation runs on the clients.
+**VPS setup and deployment.** The production VPS (Hostinger, 2 vCPU, 8 GB RAM, 100 GB disk) is set up in Sprint 0 from a scripted setup, and the real Docker Compose deploy path is exercised on it from the start with fake data only, so the production deploy is rehearsed even though staging runs on Fly.io. Staging runs the same container images on Fly.io, is fully separate from production, and holds test accounts only. The server load is light because key derivation runs on the clients.
 
 - Ubuntu LTS with unattended security updates; SSH keys only, root login off, fail2ban
 - Firewall open only on 22, 80 and 443; PostgreSQL and MinIO listen on the private Docker network, never on the internet
@@ -157,8 +157,8 @@ Every sprint ends with one git tag (for example `v0.4.0-beta.1`) that builds and
 | --- | --- | --- | --- | --- |
 | Local | Development | Docker Compose Postgres, local API | Developers | Seeded fake accounts |
 | Preview | One per pull request | Temporary Docker Compose stack inside CI | Reviewer | Seeded fake accounts |
-| Staging | Sprint betas and release candidates | Staging VPS | Suman and beta testers | Test accounts only; never real passwords |
-| Production | Live users, from the MVP release | Production VPS, separate from staging, backups and point-in-time recovery | Everyone | Real, encrypted |
+| Staging | Sprint betas and release candidates | Staging on Fly.io | Suman and beta testers | Test accounts only; never real passwords |
+| Production | Live users, from the MVP release | Production VPS (Docker Compose), separate from staging, backups and point-in-time recovery | Everyone | Real, encrypted |
 
 | Client | Every pull request | Every sprint release (beta) | GA |
 | --- | --- | --- | --- |
@@ -170,7 +170,7 @@ Every sprint ends with one git tag (for example `v0.4.0-beta.1`) that builds and
 **How a sprint release reaches testers**
 
 1. Last day of the sprint: all stories meeting the Definition of Done are merged to `main`; unfinished work stays behind a feature flag.
-2. Tag the release. CI builds container images, pushes them to GitHub Container Registry and deploys them to the staging VPS over SSH (migrations first, then docker compose pull and up), runs EAS Build and EAS Submit to TestFlight and the Play internal track, and uploads the extension to the Chrome Web Store private listing.
+2. Tag the release. CI builds container images, pushes them to GitHub Container Registry and deploys them to staging on Fly.io (migrations first, then flyctl deploy), and rehearses the production deploy (SSH, then docker compose pull and up) against the production VPS with fake data until the security gate, runs EAS Build and EAS Submit to TestFlight and the Play internal track, and uploads the extension to the Chrome Web Store private listing.
 3. CI runs the smoke suite against staging; release notes are generated from merged PR titles.
 4. Sprint review: Suman runs the sprint's acceptance tests on the real test builds, on at least one iPhone, one Android phone and Chrome on a desktop.
 5. Accepted stories are marked done; defects go into the next sprint backlog. Store review delays (TestFlight external, Chrome Web Store) do not block internal testing, because internal channels need no review.
