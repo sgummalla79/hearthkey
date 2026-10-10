@@ -162,7 +162,7 @@ Every sprint ends with one git tag (for example `v0.4.0-beta.1`) that builds and
 
 | Client | Every pull request | Every sprint release (beta) | GA |
 | --- | --- | --- | --- |
-| Web app | Web build artifact on the PR, also served by the CI stack for tests | staging.<domain> | app.<domain> |
+| Web app | Web build artifact on the PR, also served by the CI stack for tests | staging.sgummalla.net | app.sgummalla.net |
 | iPhone (and Apple Silicon Mac) | EAS development build; JavaScript-only changes via EAS Update preview channel | TestFlight: internal testers first (up to 100, no Apple review), external testers once Beta App Review approves | App Store |
 | Android | EAS development build or internal APK | Google Play internal testing track (up to 100 testers, available within minutes) | Google Play production, after closed testing |
 | Chrome extension | Zip artifact on the PR, loaded with "Load unpacked" | Chrome Web Store listing set to Private, shared with a trusted-testers Google Group; zip also attached to the GitHub release | Public Chrome Web Store listing |
