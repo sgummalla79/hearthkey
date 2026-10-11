@@ -34,3 +34,20 @@ Roll back by setting `HEARTHKEY_API_IMAGE` to the previous tag and running `dock
 ## Notes
 - MinIO no longer publishes community Docker images, so blob storage is deferred to Sprint 14; the filesystem `BlobStore` adapter covers local use until a replacement is chosen.
 - Database for staging (Fly Postgres or another managed Postgres) is chosen when the first migration lands.
+
+## Releasing to staging
+
+Prerequisite (once): create a Fly deploy token and store it as a GitHub secret without printing it:
+
+```sh
+fly tokens create deploy --app hearthkey-staging | gh secret set FLY_API_TOKEN --repos sgummalla79/hearthkey
+```
+
+Then, from an up-to-date `main` that is green:
+
+```sh
+git tag v0.1.0-beta.1
+git push origin v0.1.0-beta.1
+```
+
+The `Release` workflow verifies the commit, builds the API image once, pushes it to GitHub Container Registry and Fly's registry, deploys that exact image to staging, smoke-tests `/v1/health`, and creates a GitHub release (marked pre-release when the tag contains a hyphen). Mobile and extension publishing are added with those clients.
