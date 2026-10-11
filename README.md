@@ -23,3 +23,14 @@ pnpm --filter @hearthkey/mobile web            # or: ios, android
 ```
 
 For staging use `EXPO_PUBLIC_API_BASE_URL=https://hearthkey-staging.fly.dev`. The home screen shows the API status from `/v1/health`.
+
+## Building the extension (apps/extension)
+
+Chrome extension (Manifest V3, WXT + React). The API origin is a build-time setting and the only host the extension may call.
+
+```sh
+cp apps/extension/.env.example apps/extension/.env   # set WXT_API_BASE_URL
+pnpm --filter @hearthkey/extension build             # output in apps/extension/.output/chrome-mv3
+```
+
+Load it in Chrome via `chrome://extensions` → Developer mode → Load unpacked → select the `chrome-mv3` folder.

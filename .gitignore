@@ -156,3 +156,7 @@ deploy/**/*.env
 
 # Expo
 .expo/
+
+# WXT
+.wxt/
+.output/
