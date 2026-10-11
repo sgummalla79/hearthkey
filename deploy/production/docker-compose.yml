@@ -1,0 +1,65 @@
+# Production stack for the VPS. Only Caddy publishes ports; PostgreSQL lives on the
+# private network. Values come from /opt/hearthkey/.env (not in git).
+name: hearthkey
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      HEARTHKEY_API_DOMAIN: ${HEARTHKEY_API_DOMAIN}
+      HEARTHKEY_API_PORT: ${HEARTHKEY_API_PORT}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+    networks: [public, private]
+
+  api:
+    image: ${HEARTHKEY_API_IMAGE}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      HEARTHKEY_API_HOST: ${HEARTHKEY_API_HOST}
+      HEARTHKEY_API_PORT: ${HEARTHKEY_API_PORT}
+      HEARTHKEY_DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      HEARTHKEY_REQUEST_BODY_LIMIT_BYTES: ${HEARTHKEY_REQUEST_BODY_LIMIT_BYTES}
+      HEARTHKEY_PAGE_SIZE_MAX: ${HEARTHKEY_PAGE_SIZE_MAX}
+      HEARTHKEY_LOG_LEVEL: ${HEARTHKEY_LOG_LEVEL}
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    networks: [private]
+
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [private]
+
+networks:
+  public:
+  private:
+    internal: false
+
+volumes:
+  postgres-data:
+  caddy-data:
+  caddy-config:
