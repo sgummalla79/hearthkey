@@ -153,3 +153,6 @@ vite.config.ts.timestamp-*
 
 # Local/production deploy env files (examples are committed)
 deploy/**/*.env
+
+# Expo
+.expo/

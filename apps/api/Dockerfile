@@ -5,7 +5,7 @@ ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable
 WORKDIR /repo
 COPY . .
-RUN pnpm install --frozen-lockfile \
+RUN pnpm install --frozen-lockfile --filter @hearthkey/api... \
   && pnpm --filter @hearthkey/api build \
   && pnpm --filter @hearthkey/api deploy --legacy --prod /out \
   && cp -r apps/api/dist /out/dist
