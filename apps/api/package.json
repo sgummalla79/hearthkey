@@ -15,9 +15,12 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "start": "node dist/server.js"
   },
   "dependencies": {
+    "@fastify/helmet": "^13.1.2",
+    "fastify": "^5.12.5",
     "zod": "^4.6.5"
   }
 }

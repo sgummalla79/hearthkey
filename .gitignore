@@ -150,3 +150,6 @@ vite.config.ts.timestamp-*
 
 .sf/
 !.env.example
+
+# Local/production deploy env files (examples are committed)
+deploy/**/*.env

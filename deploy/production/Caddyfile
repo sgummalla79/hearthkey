@@ -1,0 +1,4 @@
+{$HEARTHKEY_API_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy api:{$HEARTHKEY_API_PORT}
+}
