@@ -1,0 +1,18 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+}
+
+.popup {
+  width: 320px;
+  padding: 16px;
+}
+
+.popup h1 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}

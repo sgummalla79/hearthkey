@@ -4,7 +4,17 @@ import security from 'eslint-plugin-security';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/coverage/**', '**/.turbo/**', '.sf/**', '**/.expo/**'] },
+  {
+    ignores: [
+      '**/dist/**',
+      '**/coverage/**',
+      '**/.turbo/**',
+      '.sf/**',
+      '**/.expo/**',
+      '**/.wxt/**',
+      '**/.output/**',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,
@@ -37,8 +47,12 @@ export default tseslint.config(
     rules: { 'no-restricted-exports': 'off' },
   },
   {
-    // Expo Router requires default exports for route files.
-    files: ['apps/mobile/app/**/*.tsx'],
+    // Expo Router and WXT require default exports for route, entrypoint and config files.
+    files: [
+      'apps/mobile/app/**/*.tsx',
+      'apps/extension/entrypoints/**',
+      'apps/extension/wxt.config.ts',
+    ],
     rules: { 'no-restricted-exports': 'off' },
   },
   eslintConfigPrettier,
