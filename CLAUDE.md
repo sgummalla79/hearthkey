@@ -5,6 +5,7 @@ Zero-knowledge password manager. pnpm/Turborepo TypeScript monorepo: Expo app (i
 ## Working agreements
 - Never commit, push, or add `Co-Authored-By` lines unless the user explicitly asks.
 - **Never work directly on `main`.** Before changing any file for a feature, bug fix, or chore, create a branch (`<type>/<issue-id>-<short-description>`, e.g. `feat/123-passkey-signup`). If the current branch is `main`, branch first. Changes reach `main` only through a pull request. Details: [docs/standards/delivery-and-operations.md](docs/standards/delivery-and-operations.md).
+- **No production deploys until the MVP (week of 2027-02-22).** Only staging (Fly.io) is deployed; clients are development builds on the owner's own devices only (no TestFlight, Google Play or Chrome Web Store). Never provision, deploy to, or point DNS at the production VPS unless the owner says the MVP phase has started. See [ADR-0005](docs/adr/0005-staging-only-until-mvp.md).
 - If a rule here conflicts with the plan or a request, say so and ask before deviating.
 - Security outranks convenience. Security-relevant changes need failure-case tests, not just happy paths.
 
