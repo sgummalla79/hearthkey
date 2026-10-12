@@ -12,6 +12,8 @@ curl localhost:3000/v1/health
 
 ## Production VPS (Docker Compose)
 
+> Not used until Sprint 8 (ADR-0005): do not run these steps, deploy, or create DNS records before then.
+
 1. Create a dedicated SSH key on your computer: `ssh-keygen -t ed25519 -C hearthkey-deploy`.
 2. Copy `deploy/production/setup-vps.sh` to the server and run it as root, keeping your first SSH session open:
    `DEPLOY_USER=deploy DEPLOY_PUBLIC_KEY="<contents of the .pub file>" bash setup-vps.sh`

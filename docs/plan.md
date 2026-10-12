@@ -69,7 +69,7 @@ The extensibility requirement (notes, SSL certificates) is handled in the data m
 
 **Swappable storage.** Storage is self-hosted for now and the code never talks to it directly. The API depends on two interfaces in a `storage` package: a `VaultRepository` for records (implemented with Drizzle over PostgreSQL) and a `BlobStore` for files (`put`, `get`, `delete`, `signedUrl`). Two `BlobStore` adapters ship from Sprint 0, local filesystem for development and S3 API for MinIO, and the S3 adapter works unchanged against AWS S3 or Cloudflare R2. Moving to cloud storage later is then a configuration change plus a one-time data copy (pg_dump and restore, `mc mirror` for files), with no app release. Because every byte is encrypted on the client, the storage provider never needs to be trusted. Nightly backups of both stores go to a second location, and a restore is tested before every sprint release.
 
-**VPS setup and deployment.** The production VPS (Hostinger, 2 vCPU, 8 GB RAM, 100 GB disk) is set up in Sprint 0 from a scripted setup, and the real Docker Compose deploy path is exercised on it from the start with fake data only, so the production deploy is rehearsed even though staging runs on Fly.io. Staging runs the same container images on Fly.io, is fully separate from production, and holds test accounts only. The server load is light because key derivation runs on the clients.
+**VPS setup and deployment.** Per [ADR-0005](adr/0005-staging-only-until-mvp.md), nothing is deployed to production until the MVP. The production VPS (Hostinger, 2 vCPU, 8 GB RAM, 100 GB disk) is provisioned from the scripted setup in Sprint 8 and the Docker Compose deploy is rehearsed there with fake data before launch week. Until then, staging runs the same container images on Fly.io, is fully separate from production, and holds test accounts only. The server load is light because key derivation runs on the clients.
 
 - Ubuntu LTS with unattended security updates; SSH keys only, root login off, fail2ban
 - Firewall open only on 22, 80 and 443; PostgreSQL and MinIO listen on the private Docker network, never on the internet
@@ -141,7 +141,7 @@ The project follows six phases aimed at a production MVP after Sprint 8, then a 
 | Phase | When | Main outputs | Exit gate |
 | --- | --- | --- | --- |
 | 1. Inception and requirements | Now to 2026-10-16 | Vision, personas (individual, family organizer, team manager, member), MVP scope, user stories with acceptance criteria, non-functional requirements | Suman signs off MVP scope and the open decisions above |
-| 2. Architecture, security design and setup | Sprint 0 | Architecture decision records, crypto spec (including the recovery design), threat model, data model, API contract, wireframes; every environment live, production included | Crypto spec reviewed; skeleton build deployed to every environment |
+| 2. Architecture, security design and setup | Sprint 0 | Architecture decision records, crypto spec (including the recovery design), threat model, data model, API contract, wireframes; local, preview and staging live (production is provisioned in Sprint 8, see ADR-0005) | Crypto spec reviewed; skeleton build deployed to staging |
 | 3. MVP build | Sprints 1 to 7 | Accounts, vault on web and phones, extension autofill, save and update prompts, import | Each sprint: Definition of Done met and sprint review accepted |
 | 4. MVP stabilization and security review | Sprint 8 | Independent security review, accessibility pass, performance, privacy policy, store listings | No open critical or high findings; release candidate accepted |
 | 5. MVP release | Week of 2027-02-22 | App Store and Play production release, public Chrome Web Store listing, production web app | Store approvals received; production smoke tests pass |
@@ -151,7 +151,7 @@ Each sprint itself follows the same small cycle: planning, design of the sprint'
 
 ## Environments and test releases
 
-Every sprint ends with one git tag (for example `v0.4.0-beta.1`) that builds and publishes all four clients to their test channels against the staging API, so a feature is tested on every platform in the same sprint it is built.
+Every sprint ends with one git tag (for example `v0.4.0-beta.1`) that builds the API image and deploys it to staging; the clients are built as development builds against the staging API (no store or TestFlight distribution before the MVP, see [ADR-0005](adr/0005-staging-only-until-mvp.md)), so a feature is tested on every platform in the same sprint it is built.
 
 | Environment | Purpose | API and database | Who uses it | Data |
 | --- | --- | --- | --- | --- |
@@ -160,20 +160,20 @@ Every sprint ends with one git tag (for example `v0.4.0-beta.1`) that builds and
 | Staging | Sprint betas and release candidates | Staging on Fly.io | Suman and beta testers | Test accounts only; never real passwords |
 | Production | Live users, from the MVP release | Production VPS (Docker Compose), separate from staging, backups and point-in-time recovery | Everyone | Real, encrypted |
 
-| Client | Every pull request | Every sprint release (beta) | GA |
+| Client | Every pull request | Every sprint release (development build) | GA (MVP) |
 | --- | --- | --- | --- |
 | Web app | Web build artifact on the PR, also served by the CI stack for tests | staging.sgummalla.net | app.sgummalla.net |
-| iPhone (and Apple Silicon Mac) | EAS development build; JavaScript-only changes via EAS Update preview channel | TestFlight: internal testers first (up to 100, no Apple review), external testers once Beta App Review approves | App Store |
-| Android | EAS development build or internal APK | Google Play internal testing track (up to 100 testers, available within minutes) | Google Play production, after closed testing |
-| Chrome extension | Zip artifact on the PR, loaded with "Load unpacked" | Chrome Web Store listing set to Private, shared with a trusted-testers Google Group; zip also attached to the GitHub release | Public Chrome Web Store listing |
+| iPhone (and Apple Silicon Mac) | EAS development build; JavaScript-only changes via EAS Update preview channel | EAS development build installed on Suman's own devices (simulator, iPhone, iPad, Apple Silicon Mac) pointing at staging | App Store |
+| Android | EAS development build or internal APK | EAS development build or internal APK installed on own devices or emulator, pointing at staging | Google Play production, after closed testing |
+| Chrome extension | Zip artifact on the PR, loaded with "Load unpacked" | Built locally or from CI and loaded with "Load unpacked" (zip attached to the GitHub release); no Chrome Web Store listing | Public Chrome Web Store listing |
 
 **How a sprint release reaches testers**
 
 1. Last day of the sprint: all stories meeting the Definition of Done are merged to `main`; unfinished work stays behind a feature flag.
-2. Tag the release. CI builds container images, pushes them to GitHub Container Registry and deploys them to staging on Fly.io (migrations first, then flyctl deploy), and rehearses the production deploy (SSH, then docker compose pull and up) against the production VPS with fake data until the security gate, runs EAS Build and EAS Submit to TestFlight and the Play internal track, and uploads the extension to the Chrome Web Store private listing.
+2. Tag the release. CI builds container images, pushes them to GitHub Container Registry and deploys them to staging on Fly.io (migrations first, then flyctl deploy), and does not touch production (no production deploys until the MVP). Client builds (EAS development builds, extension zip) are produced for installation on own devices; nothing is submitted to TestFlight, Google Play or the Chrome Web Store before the MVP.
 3. CI runs the smoke suite against staging; release notes are generated from merged PR titles.
 4. Sprint review: Suman runs the sprint's acceptance tests on the real test builds, on at least one iPhone, one Android phone and Chrome on a desktop.
-5. Accepted stories are marked done; defects go into the next sprint backlog. Store review delays (TestFlight external, Chrome Web Store) do not block internal testing, because internal channels need no review.
+5. Accepted stories are marked done; defects go into the next sprint backlog. Store review delays do not affect development, because nothing goes through a store before the MVP.
 
 ## Backlog by epic
 
@@ -181,7 +181,7 @@ Eleven epics (E0 to E10) cover the requirements. **T****he MVP**** is**** E****0
 
 | Epic | Key stories | Sprints | Release |
 | --- | --- | --- | --- |
-| E0 Foundation | Monorepo, CI/CD, all environments including production VPS, developer accounts, crypto spec, threat model, design system, walking skeleton | 0 | MVP |
+| E0 Foundation | Monorepo, CI/CD, local, preview and staging environments (production VPS is provisioned in Sprint 8), developer accounts, crypto spec, threat model, design system, walking skeleton | 0 | MVP |
 | E1 Accounts and keys | Sign up, master password strength meter, key derivation, log in, passkey second factor with TOTP and recovery-code fallback, lock and unlock, auto-lock, recovery kit PDF, change master password, sessions list and revoke | 1 to 2 | MVP |
 | E2 Vault core | Create, edit, delete and restore logins; folders and favourites; search; password generator; encrypted sync with conflict handling; offline cache | 3 to 4 | MVP |
 | E3 Chrome extension | Popup unlock and search, login form detection, inline autofill dropdown, save-password prompt, update-password prompt, never-save list, generator in sign-up forms | 5 to 7 | MVP |
@@ -197,7 +197,7 @@ Later, outside this plan: passkey storage, credit cards and identities, Edge, Fi
 
 ## Sprint plan
 
-With one developer, the MVP reaches production in the week of 2027-02-22, after Sprint 0 plus 8 sprints of 2 weeks; each sprint carries about half the scope of the earlier 1-to-2-developer plan. Every environment, production included, is live from Sprint 0, so the MVP launch promotes a build that has already been through staging and the test channels. Before the MVP, each sprint release goes to staging and the test channels; after it, each sprint release goes to beta and then to production once Suman accepts it, early in the next sprint. Dates assume work continues through the December holidays.
+With one developer, the MVP reaches production in the week of 2027-02-22, after Sprint 0 plus 8 sprints of 2 weeks; each sprint carries about half the scope of the earlier 1-to-2-developer plan. Production is not touched before the MVP (ADR-0005): it is provisioned and rehearsed with fake data in Sprint 8, and the launch promotes a build that has already been through staging. Before the MVP, each sprint release goes to staging and to development builds on own devices; after it, each sprint release goes to beta and then to production once Suman accepts it, early in the next sprint. Dates assume work continues through the December holidays.
 
 ```mermaid
 gantt
@@ -232,15 +232,15 @@ gantt
 
 | Sprint | Dates | Goal | What the release lets testers or users do | Goes to |
 | --- | --- | --- | --- | --- |
-| 0 | Oct 19 to Oct 30 | Foundation, every environment live | Install a "hello Hearthkey" build that has passed through preview, staging and production, plus TestFlight, Play internal and the Chrome private listing | All environments (production not announced) |
-| 1 | Nov 2 to Nov 13 | Crypto core and sign-up | Create an account and log in on web and phones | Staging and test channels |
-| 2 | Nov 16 to Nov 27 | Account security | Add a passkey (or a TOTP code as fallback) and sign in with it, lock and unlock, auto-lock, download the recovery kit and recovery codes | Staging and test channels |
-| 3 | Nov 30 to Dec 11 | Vault basics | Add, edit, delete and search logins; generate passwords | Staging and test channels |
-| 4 | Dec 14 to Dec 25 | Sync and offline | See changes sync between phone and web; use the vault offline | Staging and test channels |
-| 5 | Dec 28 to Jan 8 | Extension popup | Unlock the extension, search the vault, fill a login from the popup | Staging and test channels |
-| 6 | Jan 11 to Jan 22 | Extension inline autofill | Pick a login from the inline dropdown on a saved site | Staging and test channels |
-| 7 | Jan 25 to Feb 5 | Save, update, import | Get save and update prompts, import a Google Password Manager CSV, export the vault; first store submissions go in for review | Staging and test channels |
-| 8 | Feb 8 to Feb 19 | MVP hardening | See and revoke signed-in sessions; release candidate with security review fixes, accessibility and privacy policy | Staging and test channels |
+| 0 | Oct 19 to Oct 30 | Foundation, every environment live | Install a "hello Hearthkey" development build on own devices and as an unpacked extension, all pointing at staging | Staging and development builds |
+| 1 | Nov 2 to Nov 13 | Crypto core and sign-up | Create an account and log in on web and phones | Staging and development builds |
+| 2 | Nov 16 to Nov 27 | Account security | Add a passkey (or a TOTP code as fallback) and sign in with it, lock and unlock, auto-lock, download the recovery kit and recovery codes | Staging and development builds |
+| 3 | Nov 30 to Dec 11 | Vault basics | Add, edit, delete and search logins; generate passwords | Staging and development builds |
+| 4 | Dec 14 to Dec 25 | Sync and offline | See changes sync between phone and web; use the vault offline | Staging and development builds |
+| 5 | Dec 28 to Jan 8 | Extension popup | Unlock the extension, search the vault, fill a login from the popup | Staging and development builds |
+| 6 | Jan 11 to Jan 22 | Extension inline autofill | Pick a login from the inline dropdown on a saved site | Staging and development builds |
+| 7 | Jan 25 to Feb 5 | Save, update, import | Get save and update prompts, import a Google Password Manager CSV, export the vault; first store submissions go in for review | Staging and development builds |
+| 8 | Feb 8 to Feb 19 | MVP hardening | See and revoke signed-in sessions; release candidate with security review fixes, accessibility and privacy policy | Staging and development builds |
 | MVP | Feb 22 to Feb 26 | **MVP launch** | Use Hearthkey for real on web, iPhone, Android and Chrome | Production: web, App Store, Play, Chrome Web Store |
 | 9 | Mar 1 to Mar 12 | Android autofill (1.1) | Choose Hearthkey as the Android autofill service | Beta, then production |
 | 10 | Mar 15 to Mar 26 | iOS autofill and biometrics (1.2) | Fill in Safari and apps from Hearthkey; unlock with Face ID or fingerprint | Beta, then production |
@@ -291,4 +291,5 @@ Automated tests gate every pull request; manual acceptance on real test builds g
 | Native autofill modules in an Expo app | Sprints 6 to 7 slip | Prototype both modules as a spike in Sprint 2 |
 | App Store or Chrome Web Store review rejection | GA date slips | Submit to external TestFlight and the Chrome listing early (Sprint 7), read review guidelines for password managers |
 | Forgotten master passwords | Users lose data permanently | Clear onboarding warning and recovery kit for everyone; organizer or manager recovery for enrolled members from release 1.3 |
+| Production is first deployed in launch week (ADR-0005) | Untested production setup or store submissions delay the MVP | Provision and rehearse production with fake data in Sprint 8; start store accounts, Play closed testing and listings during Sprint 7; use the launch checklist in the environments runbook |
 | One developer (no second reviewer, single point of failure) | Every date slips | Fixed scope order; dates move, quality gates do not |
